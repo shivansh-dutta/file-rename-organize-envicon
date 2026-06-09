@@ -46,4 +46,30 @@ def _render_dxf_to_png(dxf_path: Path, png_path: Path) -> None:
 
 
 def convert_dwg_to_png(dwg_path: str, png_path: str) -> None:
-    pass  # implemented in Task 4
+    """Convert a DWG file to PNG. Raises RuntimeError on failure."""
+    dwg = Path(dwg_path)
+    png = Path(png_path)
+    tmp_in = Path(".claude/tmp/input")
+    tmp_out = Path(".claude/tmp/output")
+    tmp_in.mkdir(parents=True, exist_ok=True)
+    tmp_out.mkdir(parents=True, exist_ok=True)
+
+    dxf = None
+    try:
+        dxf = _run_oda(dwg, tmp_in, tmp_out)
+        _render_dxf_to_png(dxf, png)
+    finally:
+        (tmp_in / dwg.name).unlink(missing_ok=True)
+        if dxf and dxf.exists():
+            dxf.unlink()
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python convert_dwg.py <dwg_path> <png_output_path>", file=sys.stderr)
+        sys.exit(1)
+    try:
+        convert_dwg_to_png(sys.argv[1], sys.argv[2])
+    except RuntimeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)

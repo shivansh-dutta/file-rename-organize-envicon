@@ -84,3 +84,50 @@ def test_render_dxf_to_png_produces_image(tmp_path):
 
     assert png_path.exists()
     assert png_path.stat().st_size > 1000  # real image, not empty
+
+
+import os
+
+
+def test_convert_dwg_to_png_calls_render_on_success(fake_dwg, tmp_path):
+    """convert_dwg_to_png calls _render_dxf_to_png when ODA succeeds."""
+    from convert_dwg import convert_dwg_to_png
+
+    os.chdir(tmp_path)
+    fake_dxf = tmp_path / ".claude" / "tmp" / "output" / "FILE000.dxf"
+
+    with patch("convert_dwg._run_oda", return_value=fake_dxf) as mock_oda, \
+         patch("convert_dwg._render_dxf_to_png") as mock_render:
+
+        png_out = tmp_path / "out.png"
+        convert_dwg_to_png(str(fake_dwg), str(png_out))
+
+        mock_oda.assert_called_once()
+        mock_render.assert_called_once()
+
+
+def test_convert_dwg_to_png_cleans_up_dxf_after_success(fake_dwg, tmp_path):
+    """The DXF file returned by _run_oda is deleted after rendering."""
+    from convert_dwg import convert_dwg_to_png
+
+    os.chdir(tmp_path)
+    fake_dxf = tmp_path / "fake.dxf"
+    fake_dxf.write_bytes(b"")
+
+    with patch("convert_dwg._run_oda", return_value=fake_dxf), \
+         patch("convert_dwg._render_dxf_to_png"):
+
+        convert_dwg_to_png(str(fake_dwg), str(tmp_path / "out.png"))
+
+    assert not fake_dxf.exists()
+
+
+def test_convert_dwg_to_png_raises_and_cleans_on_oda_failure(fake_dwg, tmp_path):
+    """RuntimeError propagates and no DXF is left behind when ODA fails."""
+    from convert_dwg import convert_dwg_to_png
+
+    os.chdir(tmp_path)
+
+    with patch("convert_dwg._run_oda", side_effect=RuntimeError("ODA failed: crash")):
+        with pytest.raises(RuntimeError, match="ODA failed"):
+            convert_dwg_to_png(str(fake_dwg), str(tmp_path / "out.png"))
