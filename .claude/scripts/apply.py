@@ -27,7 +27,8 @@ def validate_manifest(files: list) -> list:
         original = entry.get("original", "")
         if original and not Path(original).exists():
             errors.append(f"{original}: file not found")
-        dest = f"{entry.get('folder', '')}/{entry.get('proposed_name', '')}"
+        effective_folder = "Uncategorized" if entry.get("confidence") == "low" else entry.get("folder", "")
+        dest = f"{effective_folder}/{entry.get('proposed_name', '')}"
         if dest in seen:
             errors.append(f"Duplicate destination {dest}: conflicts with {seen[dest]}")
         else:
