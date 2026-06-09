@@ -76,8 +76,43 @@ def apply_renames(files: list) -> list:
 
 
 def write_log(log_entries: list) -> None:
-    pass  # implemented in Task 8
+    lines = [f"DWG File Organizer — {datetime.now().isoformat()}", ""]
+    for e in log_entries:
+        if e["status"] == "moved":
+            lines.append(f"MOVED:   {e['original']} -> {e['destination']}")
+        else:
+            lines.append(f"SKIPPED: {e['original']} ({e.get('reason', '')})")
+    with open(LOG_PATH, "w") as f:
+        f.write("\n".join(lines) + "\n")
 
 
 def main() -> None:
-    pass  # implemented in Task 8
+    apply_flag = "--apply" in sys.argv
+
+    files = load_manifest()
+    errors = validate_manifest(files)
+    if errors:
+        print("Validation errors — fix rename_plan.json before applying:")
+        for e in errors:
+            print(f"  - {e}")
+        sys.exit(1)
+
+    summary = build_summary(files)
+    total = sum(len(v) for v in summary.values())
+    print(f"\nReady to apply {total} rename(s) across {len(summary)} folder(s):")
+    for folder, items in sorted(summary.items()):
+        print(f"  {folder}/  ->  {len(items)} file(s)")
+
+    if not apply_flag:
+        print("\n(Dry run — no files moved. Run with --apply to execute.)")
+        return
+
+    log = apply_renames(files)
+    write_log(log)
+    moved = sum(1 for e in log if e["status"] == "moved")
+    skipped = sum(1 for e in log if e["status"] == "skipped")
+    print(f"\nDone: {moved} moved, {skipped} skipped. See {LOG_PATH} for details.")
+
+
+if __name__ == "__main__":
+    main()

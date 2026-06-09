@@ -206,3 +206,53 @@ def test_apply_renames_returns_log_entries(workspace):
 
     assert len(log) == 2
     assert all(e["status"] == "moved" for e in log)
+
+
+# ── write_log ─────────────────────────────────────────────────────────────────
+
+def test_write_log_records_moved_and_skipped(workspace):
+    from apply import write_log
+
+    log = [
+        {"status": "moved",   "original": "A.dwg", "destination": "Electrical/Alpha.dwg"},
+        {"status": "skipped", "original": "B.dwg", "reason": "destination exists"},
+    ]
+    write_log(log)
+
+    content = (workspace / "organize_log.txt").read_text()
+    assert "MOVED" in content
+    assert "Electrical/Alpha.dwg" in content
+    assert "SKIPPED" in content
+    assert "destination exists" in content
+
+
+# ── main (dry-run) ────────────────────────────────────────────────────────────
+
+def test_main_dry_run_prints_summary_and_exits_zero(workspace, capsys, monkeypatch):
+    from apply import main
+
+    manifest = [
+        {"original": "A.dwg", "proposed_name": "Alpha.dwg", "folder": "Electrical", "confidence": "high"},
+    ]
+    monkeypatch.setattr("apply.load_manifest", lambda *_: manifest)
+    monkeypatch.setattr("sys.argv", ["apply.py"])  # no --apply flag
+
+    main()
+
+    captured = capsys.readouterr()
+    assert "Electrical" in captured.out
+    assert not (workspace / "Electrical").exists()  # nothing moved
+
+
+def test_main_apply_flag_executes_renames(workspace, monkeypatch):
+    from apply import main
+
+    manifest = [
+        {"original": "A.dwg", "proposed_name": "Alpha.dwg", "folder": "Electrical", "confidence": "high"},
+    ]
+    monkeypatch.setattr("apply.load_manifest", lambda *_: manifest)
+    monkeypatch.setattr("sys.argv", ["apply.py", "--apply"])
+
+    main()
+
+    assert (workspace / "Electrical" / "Alpha.dwg").exists()
