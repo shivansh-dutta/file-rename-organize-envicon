@@ -90,3 +90,40 @@ def test_validate_manifest_skips_error_and_skip_entries(tmp_path):
     ]
     # Neither file exists on disk, but both should be ignored by validation
     assert validate_manifest(files) == []
+
+
+# ── build_summary ─────────────────────────────────────────────────────────────
+
+def test_build_summary_groups_by_folder():
+    from apply import build_summary
+
+    files = [
+        {"original": "A.dwg", "proposed_name": "Alpha.dwg", "folder": "Electrical", "confidence": "high"},
+        {"original": "B.dwg", "proposed_name": "Beta.dwg",  "folder": "Electrical", "confidence": "high"},
+        {"original": "C.dwg", "proposed_name": "Gamma.dwg", "folder": "Structural",  "confidence": "medium"},
+    ]
+    summary = build_summary(files)
+    assert len(summary["Electrical"]) == 2
+    assert len(summary["Structural"]) == 1
+
+
+def test_build_summary_routes_low_confidence_to_uncategorized():
+    from apply import build_summary
+
+    files = [
+        {"original": "X.dwg", "proposed_name": "Xray.dwg", "folder": "Electrical", "confidence": "low"},
+    ]
+    summary = build_summary(files)
+    assert "Uncategorized" in summary
+    assert "Electrical" not in summary
+
+
+def test_build_summary_excludes_error_and_skip_entries():
+    from apply import build_summary
+
+    files = [
+        {"original": "BAD.dwg", "proposed_name": "", "folder": "", "confidence": "low", "error": "conversion_failed"},
+        {"original": "SKP.dwg", "proposed_name": "S.dwg", "folder": "Elec", "confidence": "high", "skip": True},
+    ]
+    summary = build_summary(files)
+    assert summary == {}

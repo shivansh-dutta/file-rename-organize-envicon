@@ -36,7 +36,14 @@ def validate_manifest(files: list) -> list:
 
 
 def build_summary(files: list) -> dict:
-    pass  # implemented in Task 6
+    """Return {folder: [(original, proposed_name), ...]} grouped by destination folder."""
+    summary = {}
+    for entry in files:
+        if entry.get("error") or entry.get("skip"):
+            continue
+        folder = "Uncategorized" if entry.get("confidence") == "low" else entry["folder"]
+        summary.setdefault(folder, []).append((entry["original"], entry["proposed_name"]))
+    return summary
 
 
 def apply_renames(files: list) -> list:
