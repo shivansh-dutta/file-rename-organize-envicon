@@ -26,7 +26,23 @@ def _run_oda(dwg_path: Path, tmp_in: Path, tmp_out: Path) -> Path:
 
 
 def _render_dxf_to_png(dxf_path: Path, png_path: Path) -> None:
-    pass  # implemented in Task 3
+    """Render a DXF file to PNG using ezdxf + matplotlib."""
+    import ezdxf
+    from ezdxf.addons.drawing import RenderContext, Frontend
+    from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
+    import matplotlib
+    matplotlib.use("Agg")  # non-interactive backend, safe on headless systems
+    import matplotlib.pyplot as plt
+
+    doc = ezdxf.readfile(str(dxf_path))
+    msp = doc.modelspace()
+    fig = plt.figure(figsize=(16, 12))
+    ax = fig.add_axes([0, 0, 1, 1])
+    ctx = RenderContext(doc)
+    out = MatplotlibBackend(ax)
+    Frontend(ctx, out).draw_layout(msp, finalize=True)
+    fig.savefig(str(png_path), dpi=150, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
 
 
 def convert_dwg_to_png(dwg_path: str, png_path: str) -> None:

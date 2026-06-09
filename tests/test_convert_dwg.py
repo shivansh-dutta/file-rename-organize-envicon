@@ -66,3 +66,21 @@ def test_missing_output_dxf_raises(fake_dwg, tmp_path):
 
         with pytest.raises(RuntimeError, match="did not produce"):
             _run_oda(fake_dwg, tmp_in, tmp_out)
+
+
+def test_render_dxf_to_png_produces_image(tmp_path):
+    """A minimal DXF is rendered to a non-empty PNG file."""
+    import ezdxf
+    from convert_dwg import _render_dxf_to_png
+
+    doc = ezdxf.new("R2010")
+    msp = doc.modelspace()
+    msp.add_line((0, 0), (100, 100))
+    dxf_path = tmp_path / "test.dxf"
+    doc.saveas(str(dxf_path))
+
+    png_path = tmp_path / "test.png"
+    _render_dxf_to_png(dxf_path, png_path)
+
+    assert png_path.exists()
+    assert png_path.stat().st_size > 1000  # real image, not empty
