@@ -47,7 +47,32 @@ def build_summary(files: list) -> dict:
 
 
 def apply_renames(files: list) -> list:
-    pass  # implemented in Task 7
+    """Move and rename files per manifest. Returns list of log entry dicts."""
+    log = []
+    for entry in files:
+        if entry.get("error") or entry.get("skip"):
+            log.append({"status": "skipped", "original": entry["original"], "reason": entry.get("error", "skip flag")})
+            continue
+
+        folder = "Uncategorized" if entry.get("confidence") == "low" else entry["folder"]
+        dest_dir = Path(folder)
+        dest_path = dest_dir / entry["proposed_name"]
+        src_path = Path(entry["original"])
+
+        dest_dir.mkdir(exist_ok=True)
+
+        if dest_path.exists():
+            log.append({"status": "skipped", "original": entry["original"], "reason": "destination exists", "destination": str(dest_path)})
+            continue
+
+        shutil.move(str(src_path), str(dest_path))
+        for ext in (".dwl", ".dwl2"):
+            lock = src_path.with_suffix(ext)
+            if lock.exists():
+                lock.unlink()
+
+        log.append({"status": "moved", "original": entry["original"], "destination": str(dest_path)})
+    return log
 
 
 def write_log(log_entries: list) -> None:

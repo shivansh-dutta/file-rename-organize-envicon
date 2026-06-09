@@ -127,3 +127,82 @@ def test_build_summary_excludes_error_and_skip_entries():
     ]
     summary = build_summary(files)
     assert summary == {}
+
+
+# ── apply_renames ─────────────────────────────────────────────────────────────
+
+@pytest.fixture
+def workspace(tmp_path):
+    """Create a temp workspace with DWG and lock files, cd into it."""
+    import os
+    (tmp_path / "A.dwg").write_bytes(b"dwg content")
+    (tmp_path / "A.dwl").write_bytes(b"lock")
+    (tmp_path / "A.dwl2").write_bytes(b"lock2")
+    (tmp_path / "B.dwg").write_bytes(b"dwg content")
+    os.chdir(tmp_path)
+    return tmp_path
+
+
+def test_apply_renames_moves_file_to_correct_folder(workspace):
+    from apply import apply_renames
+
+    files = [
+        {"original": "A.dwg", "proposed_name": "Alpha_Plan.dwg", "folder": "Electrical", "confidence": "high"},
+    ]
+    apply_renames(files)
+
+    assert (workspace / "Electrical" / "Alpha_Plan.dwg").exists()
+    assert not (workspace / "A.dwg").exists()
+
+
+def test_apply_renames_deletes_dwl_lock_files(workspace):
+    from apply import apply_renames
+
+    files = [
+        {"original": "A.dwg", "proposed_name": "Alpha_Plan.dwg", "folder": "Electrical", "confidence": "high"},
+    ]
+    apply_renames(files)
+
+    assert not (workspace / "A.dwl").exists()
+    assert not (workspace / "A.dwl2").exists()
+
+
+def test_apply_renames_skips_existing_destination(workspace):
+    from apply import apply_renames
+
+    dest_dir = workspace / "Electrical"
+    dest_dir.mkdir()
+    (dest_dir / "Alpha_Plan.dwg").write_bytes(b"existing")
+
+    files = [
+        {"original": "A.dwg", "proposed_name": "Alpha_Plan.dwg", "folder": "Electrical", "confidence": "high"},
+    ]
+    log = apply_renames(files)
+
+    assert log[0]["status"] == "skipped"
+    assert (workspace / "A.dwg").exists()  # original untouched
+
+
+def test_apply_renames_routes_low_confidence_to_uncategorized(workspace):
+    from apply import apply_renames
+
+    files = [
+        {"original": "B.dwg", "proposed_name": "Unknown.dwg", "folder": "Electrical", "confidence": "low"},
+    ]
+    apply_renames(files)
+
+    assert (workspace / "Uncategorized" / "Unknown.dwg").exists()
+    assert not (workspace / "Electrical").exists()
+
+
+def test_apply_renames_returns_log_entries(workspace):
+    from apply import apply_renames
+
+    files = [
+        {"original": "A.dwg", "proposed_name": "Alpha.dwg", "folder": "Electrical", "confidence": "high"},
+        {"original": "B.dwg", "proposed_name": "Beta.dwg",  "folder": "Structural",  "confidence": "high"},
+    ]
+    log = apply_renames(files)
+
+    assert len(log) == 2
+    assert all(e["status"] == "moved" for e in log)
